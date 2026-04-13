@@ -65,6 +65,10 @@
       color: var(--muted);
       margin-top: 0.35rem;
     }
+    .header-sub .tagline-name {
+      text-transform: uppercase;
+      font-weight: 600;
+    }
 
     /* theme toggle */
     .toggle-wrap {
@@ -248,7 +252,7 @@
     <div class="header-inner">
       <div>
         <h1>Live World Clock</h1>
-        <p class="header-sub">Perfect timing, wherever you work. __NAME__</p>
+        <p class="header-sub">Perfect timing, wherever you work. - <span class="tagline-name">__NAME__</span></p>
       </div>
       <div class="toggle-wrap">
         <span>light</span>
@@ -497,15 +501,11 @@
       renderClock(heroTime, heroDate, heroTzEl, heroCityEl, tz);
     }
 
-    if (heroTz) {
-      setHero(heroTz);
-    } else {
-      heroCityEl.textContent = "Detecting location...";
-      fetch("https://ipapi.co/json/")
-        .then(r => r.json())
-        .then(d => setHero(d.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone))
-        .catch(()  => setHero(Intl.DateTimeFormat().resolvedOptions().timeZone));
-    }
+    heroCityEl.textContent = "Detecting location...";
+    fetch("https://ipapi.co/json/")
+      .then(r => r.json())
+      .then(d => setHero(d.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone))
+      .catch(()  => setHero(Intl.DateTimeFormat().resolvedOptions().timeZone));
 
     // ── Small cards ──
     const savedSmall1 = JSON.parse(localStorage.getItem(LS_SMALL)  || "null") || DEFAULTS_ROW1;
