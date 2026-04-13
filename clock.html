@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Live World Clock</title>
+  <style>
+    :root {
+      --bg: #0f1117;
+      --surface: #1a1d2e;
+      --surface2: #23273a;
+      --border: #2d3148;
+      --text: #f1f5f9;
+      --muted: #64748b;
+      --accent: #ff4f4f;
+      --sub: #94a3b8;
+    }
+    [data-theme="light"] {
+      --bg: #f0f2f8;
+      --surface: #ffffff;
+      --surface2: #e8eaf4;
+      --border: #d1d5e8;
+      --text: #1e2340;
+      --muted: #6b7280;
+      --accent: #ff4f4f;
+      --sub: #4b5563;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 0 0 3rem;
+      transition: background 0.2s, color 0.2s;
+      display: flex;
+      flex-direction: column;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 1.75rem 2rem 1.5rem;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .header-inner {
+      max-width: 1100px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 1rem;
+    }
+    header h1 {
+      font-size: clamp(1.8rem, 4vw, 2.8rem);
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--accent);
+      line-height: 1.1;
+    }
+    .header-sub {
+      font-size: 0.82rem;
+      color: var(--muted);
+      margin-top: 0.35rem;
+    }
+
+    /* theme toggle */
+    .toggle-wrap {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 0.78rem;
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+    .toggle-track {
+      width: 40px; height: 22px;
+      background: var(--border);
+      border-radius: 999px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .toggle-track.on { background: var(--accent); }
+    .toggle-thumb {
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.2s;
+    }
+    .toggle-track.on .toggle-thumb { transform: translateX(18px); }
+
+    /* ── Main ── */
+    main { flex: 1; padding: 1.75rem 1rem 0; }
+
+    /* ── Hero card ── */
+    .hero {
+      max-width: 1100px;
+      margin: 0 auto 1.25rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 2.5rem 2rem 2rem;
+      position: relative;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .hero select {
+      position: absolute;
+      top: 1.25rem; right: 1.25rem;
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      cursor: pointer;
+      outline: none;
+      max-width: 210px;
+      transition: background 0.2s;
+    }
+    .hero select:hover { border-color: var(--accent); }
+    .hero .label {
+      font-size: 0.72rem;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--muted);
+      margin-bottom: 0.6rem;
+    }
+    .hero .big-time {
+      font-size: clamp(3.5rem, 10vw, 6.5rem);
+      font-weight: 550;
+      letter-spacing: -0.03em;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+      line-height: 1;
+    }
+    .hero .big-date { font-size: 1rem; color: var(--sub); margin-top: 0.7rem; }
+    .hero .tz-info  { font-size: 0.78rem; color: var(--muted); margin-top: 0.25rem; }
+
+    /* ── Small cards ── */
+    .small-grid {
+      max-width: 1100px;
+      margin: 0 auto 1rem;
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 1rem;
+    }
+    @media (max-width: 600px) { .small-grid { grid-template-columns: 1fr; } }
+    .small-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 1.25rem 1.25rem 1.1rem;
+      position: relative;
+      transition: background 0.2s, border-color 0.2s;
+    }
+    .small-card:hover { border-color: var(--accent); }
+    .small-card select {
+      position: absolute;
+      top: 0.9rem; right: 0.9rem;
+      background: var(--surface2);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      padding: 4px 8px;
+      font-size: 0.7rem;
+      cursor: pointer;
+      outline: none;
+      max-width: 130px;
+      transition: background 0.2s;
+    }
+    .small-card select:hover { border-color: var(--accent); }
+    .small-card .label {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 0.09em;
+      color: var(--muted);
+      margin-bottom: 0.4rem;
+    }
+    .small-card .s-time {
+      font-size: 2.2rem;
+      font-weight: 550;
+      letter-spacing: -0.02em;
+      font-variant-numeric: tabular-nums;
+      color: var(--text);
+      line-height: 1;
+    }
+    .small-card .s-date { font-size: 0.78rem; color: var(--sub); margin-top: 0.35rem; }
+    .small-card .s-tz   { font-size: 0.7rem;  color: var(--muted); margin-top: 0.2rem; }
+
+    /* ── 12h/24h toggle ── */
+    .fmt-toggle-wrap {
+      max-width: 1100px;
+      margin: 0.5rem auto 0;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      font-size: 0.82rem;
+      color: var(--muted);
+    }
+    .fmt-toggle-track {
+      width: 44px; height: 24px;
+      background: var(--border);
+      border-radius: 999px;
+      position: relative;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .fmt-toggle-track.on { background: var(--accent); }
+    .fmt-toggle-thumb {
+      position: absolute;
+      top: 3px; left: 3px;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: #fff;
+      transition: transform 0.2s;
+    }
+    .fmt-toggle-track.on .fmt-toggle-thumb { transform: translateX(20px); }
+    .fmt-label {
+      font-size: 0.78rem;
+      font-weight: 600;
+      color: var(--muted);
+      transition: color 0.2s;
+    }
+    .fmt-label.active { color: var(--accent); }
+
+    /* ── Footer ── */
+    footer {
+      max-width: 1100px;
+      margin: 2.5rem auto 0;
+      padding: 1.25rem 1rem 0;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    footer p { font-size: 0.78rem; color: var(--muted); }
+    footer p span { color: var(--accent); font-weight: 500; text-transform: uppercase; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="header-inner">
+      <div>
+        <h1>Live World Clock</h1>
+        <p class="header-sub">Perfect timing, wherever you work. __NAME__</p>
+      </div>
+      <div class="toggle-wrap">
+        <span>light</span>
+        <div class="toggle-track" id="theme-toggle"><div class="toggle-thumb"></div></div>
+        <span>dark</span>
+      </div>
+    </div>
+  </header>
+
+  <main>
+    <div class="hero">
+      <select id="hero-select"></select>
+      <div class="label"    id="hero-city">Detecting location...</div>
+      <div class="big-time" id="hero-time">--:--:--</div>
+      <div class="big-date" id="hero-date"></div>
+      <div class="tz-info"  id="hero-tz"></div>
+    </div>
+
+    <!-- Row 1 -->
+    <div class="small-grid">
+      <div class="small-card">
+        <select id="sel-0"></select>
+        <div class="label"  id="city-0"></div>
+        <div class="s-time" id="time-0">--:--:--</div>
+        <div class="s-date" id="date-0"></div>
+        <div class="s-tz"   id="tz-0"></div>
+      </div>
+      <div class="small-card">
+        <select id="sel-1"></select>
+        <div class="label"  id="city-1"></div>
+        <div class="s-time" id="time-1">--:--:--</div>
+        <div class="s-date" id="date-1"></div>
+        <div class="s-tz"   id="tz-1"></div>
+      </div>
+      <div class="small-card">
+        <select id="sel-2"></select>
+        <div class="label"  id="city-2"></div>
+        <div class="s-time" id="time-2">--:--:--</div>
+        <div class="s-date" id="date-2"></div>
+        <div class="s-tz"   id="tz-2"></div>
+      </div>
+    </div>
+
+    <!-- Row 2 -->
+    <div class="small-grid">
+      <div class="small-card">
+        <select id="sel-3"></select>
+        <div class="label"  id="city-3"></div>
+        <div class="s-time" id="time-3">--:--:--</div>
+        <div class="s-date" id="date-3"></div>
+        <div class="s-tz"   id="tz-3"></div>
+      </div>
+      <div class="small-card">
+        <select id="sel-4"></select>
+        <div class="label"  id="city-4"></div>
+        <div class="s-time" id="time-4">--:--:--</div>
+        <div class="s-date" id="date-4"></div>
+        <div class="s-tz"   id="tz-4"></div>
+      </div>
+      <div class="small-card">
+        <select id="sel-5"></select>
+        <div class="label"  id="city-5"></div>
+        <div class="s-time" id="time-5">--:--:--</div>
+        <div class="s-date" id="date-5"></div>
+        <div class="s-tz"   id="tz-5"></div>
+      </div>
+    </div>
+
+    <!-- 12h / 24h toggle -->
+    <div class="fmt-toggle-wrap">
+      <span class="fmt-label active" id="lbl-12h">12h</span>
+      <div class="fmt-toggle-track" id="fmt-toggle"><div class="fmt-toggle-thumb"></div></div>
+      <span class="fmt-label" id="lbl-24h">24h</span>
+    </div>
+
+  </main>
+
+  <footer>
+    <p>Built by <span>UCHEOR</span></p>
+  </footer>
+
+  <script>
+    const ZONES = [
+      { label: "Calgary",       tz: "America/Edmonton"    },
+      { label: "New York",      tz: "America/New_York"    },
+      { label: "Los Angeles",   tz: "America/Los_Angeles" },
+      { label: "Chicago",       tz: "America/Chicago"     },
+      { label: "Toronto",       tz: "America/Toronto"     },
+      { label: "Vancouver",     tz: "America/Vancouver"   },
+      { label: "São Paulo",     tz: "America/Sao_Paulo"   },
+      { label: "Mexico City",   tz: "America/Mexico_City" },
+      { label: "London",        tz: "Europe/London"       },
+      { label: "Paris",         tz: "Europe/Paris"        },
+      { label: "Berlin",        tz: "Europe/Berlin"       },
+      { label: "Amsterdam",     tz: "Europe/Amsterdam"    },
+      { label: "Madrid",        tz: "Europe/Madrid"       },
+      { label: "Rome",          tz: "Europe/Rome"         },
+      { label: "Moscow",        tz: "Europe/Moscow"       },
+      { label: "Dubai",         tz: "Asia/Dubai"          },
+      { label: "Mumbai",        tz: "Asia/Kolkata"        },
+      { label: "Karachi",       tz: "Asia/Karachi"        },
+      { label: "Bangkok",       tz: "Asia/Bangkok"        },
+      { label: "Singapore",     tz: "Asia/Singapore"      },
+      { label: "Hong Kong",     tz: "Asia/Hong_Kong"      },
+      { label: "Shanghai",      tz: "Asia/Shanghai"       },
+      { label: "Tokyo",         tz: "Asia/Tokyo"          },
+      { label: "Seoul",         tz: "Asia/Seoul"          },
+      { label: "Sydney",        tz: "Australia/Sydney"    },
+      { label: "Melbourne",     tz: "Australia/Melbourne" },
+      { label: "Auckland",      tz: "Pacific/Auckland"    },
+      { label: "Honolulu",      tz: "Pacific/Honolulu"    },
+      { label: "Johannesburg",  tz: "Africa/Johannesburg" },
+      { label: "Cairo",         tz: "Africa/Cairo"        },
+      { label: "Lagos",         tz: "Africa/Lagos"        },
+    ];
+
+    const DEFAULTS_ROW1 = ["America/New_York", "Australia/Sydney", "Europe/London"];
+    const DEFAULTS_ROW2 = ["Africa/Lagos", "Africa/Johannesburg", "America/Vancouver"];
+    const LS_THEME  = "wt_theme";
+    const LS_HERO   = "wt_hero";
+    const LS_SMALL  = "wt_small";
+    const LS_SMALL2 = "wt_small2";
+    const LS_FMT    = "wt_fmt";
+
+    let use24h = localStorage.getItem(LS_FMT) === "24";
+
+    function getOffsetLabel(tz) {
+      const parts = new Intl.DateTimeFormat("en", {
+        timeZone: tz, timeZoneName: "short"
+      }).formatToParts(new Date());
+      return (parts.find(p => p.type === "timeZoneName") || {}).value || tz;
+    }
+
+    function labelForTz(tz) {
+      const match = ZONES.find(z => z.tz === tz);
+      if (match) return match.label;
+      return tz.split("/").pop().replace(/_/g, " ");
+    }
+
+    function ensureZoneInList(tz) {
+      if (!ZONES.find(z => z.tz === tz)) {
+        const label = tz.split("/").pop().replace(/_/g, " ");
+        ZONES.unshift({ label: label + " (local)", tz });
+      }
+    }
+
+    function buildSelect(el, currentTz, onChange) {
+      el.innerHTML = "";
+      ZONES.forEach(z => {
+        const opt = document.createElement("option");
+        opt.value = z.tz;
+        opt.textContent = z.label;
+        if (z.tz === currentTz) opt.selected = true;
+        el.appendChild(opt);
+      });
+      el.addEventListener("change", () => onChange(el.value));
+    }
+
+    function renderClock(timeEl, dateEl, tzEl, cityEl, tz) {
+      const now = new Date();
+      if (use24h) {
+        timeEl.textContent = now.toLocaleTimeString("en-GB", {
+          timeZone: tz, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false
+        });
+      } else {
+        timeEl.textContent = now.toLocaleTimeString("en-US", {
+          timeZone: tz, hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true
+        });
+      }
+      dateEl.textContent = now.toLocaleDateString("en-GB", {
+        timeZone: tz, weekday: "long", month: "long", day: "numeric", year: "numeric"
+      });
+      if (tzEl)   tzEl.textContent   = getOffsetLabel(tz);
+      if (cityEl) cityEl.textContent = labelForTz(tz);
+    }
+
+    function refreshAll() {
+      if (heroTz) renderClock(heroTime, heroDate, heroTzEl, heroCityEl, heroTz);
+      for (let i = 0; i < 6; i++) {
+        renderClock(
+          document.getElementById("time-" + i),
+          document.getElementById("date-" + i),
+          document.getElementById("tz-"   + i),
+          document.getElementById("city-" + i),
+          smallState[i]
+        );
+      }
+    }
+
+    // ── Theme toggle ──
+    const savedTheme = localStorage.getItem(LS_THEME) || "dark";
+    if (savedTheme === "light") document.documentElement.setAttribute("data-theme", "light");
+    const themeToggle = document.getElementById("theme-toggle");
+    if (savedTheme === "light") themeToggle.classList.add("on");
+    themeToggle.addEventListener("click", () => {
+      const isLight = document.documentElement.getAttribute("data-theme") === "light";
+      if (isLight) {
+        document.documentElement.removeAttribute("data-theme");
+        themeToggle.classList.remove("on");
+        localStorage.setItem(LS_THEME, "dark");
+      } else {
+        document.documentElement.setAttribute("data-theme", "light");
+        themeToggle.classList.add("on");
+        localStorage.setItem(LS_THEME, "light");
+      }
+    });
+
+    // ── 12h/24h toggle ──
+    const fmtToggle = document.getElementById("fmt-toggle");
+    const lbl12 = document.getElementById("lbl-12h");
+    const lbl24 = document.getElementById("lbl-24h");
+
+    function updateFmtLabels() {
+      if (use24h) {
+        fmtToggle.classList.add("on");
+        lbl12.classList.remove("active");
+        lbl24.classList.add("active");
+      } else {
+        fmtToggle.classList.remove("on");
+        lbl12.classList.add("active");
+        lbl24.classList.remove("active");
+      }
+    }
+    updateFmtLabels();
+
+    fmtToggle.addEventListener("click", () => {
+      use24h = !use24h;
+      localStorage.setItem(LS_FMT, use24h ? "24" : "12");
+      updateFmtLabels();
+      refreshAll();
+    });
+
+    // ── Hero ──
+    let heroTz       = localStorage.getItem(LS_HERO);
+    const heroSel    = document.getElementById("hero-select");
+    const heroTime   = document.getElementById("hero-time");
+    const heroDate   = document.getElementById("hero-date");
+    const heroTzEl   = document.getElementById("hero-tz");
+    const heroCityEl = document.getElementById("hero-city");
+
+    function setHero(tz) {
+      heroTz = tz;
+      localStorage.setItem(LS_HERO, tz);
+      ensureZoneInList(tz);
+      buildSelect(heroSel, tz, setHero);
+      renderClock(heroTime, heroDate, heroTzEl, heroCityEl, tz);
+    }
+
+    if (heroTz) {
+      setHero(heroTz);
+    } else {
+      heroCityEl.textContent = "Detecting location...";
+      fetch("https://ipapi.co/json/")
+        .then(r => r.json())
+        .then(d => setHero(d.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone))
+        .catch(()  => setHero(Intl.DateTimeFormat().resolvedOptions().timeZone));
+    }
+
+    // ── Small cards ──
+    const savedSmall1 = JSON.parse(localStorage.getItem(LS_SMALL)  || "null") || DEFAULTS_ROW1;
+    const savedSmall2 = JSON.parse(localStorage.getItem(LS_SMALL2) || "null") || DEFAULTS_ROW2;
+    const smallState  = [...savedSmall1, ...savedSmall2];
+
+    for (let i = 0; i < 6; i++) {
+      const lsKey  = i < 3 ? LS_SMALL : LS_SMALL2;
+      const sel    = document.getElementById("sel-"  + i);
+      const timeEl = document.getElementById("time-" + i);
+      const dateEl = document.getElementById("date-" + i);
+      const tzEl   = document.getElementById("tz-"   + i);
+      const cityEl = document.getElementById("city-" + i);
+
+      ensureZoneInList(smallState[i]);
+      buildSelect(sel, smallState[i], newTz => {
+        smallState[i] = newTz;
+        const rowState = i < 3 ? smallState.slice(0, 3) : smallState.slice(3, 6);
+        localStorage.setItem(lsKey, JSON.stringify(rowState));
+        renderClock(timeEl, dateEl, tzEl, cityEl, newTz);
+      });
+      renderClock(timeEl, dateEl, tzEl, cityEl, smallState[i]);
+    }
+
+    setInterval(refreshAll, 1000);
+  </script>
+</body>
+</html>

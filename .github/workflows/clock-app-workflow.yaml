@@ -1,0 +1,160 @@
+# move to ./github/workflows/
+
+name: Clock_App-Deploy_to_EC2_ucheor 
+
+on:
+  push:
+    branches: ["main"]
+  
+permissions:
+  id-token: write   # REQUIRED for OIDC to work
+  contents: read    # required for checkout
+
+
+env:
+  #confirm github repository secrets and variables are set up
+  AWS_OIDC_ROLE_ARN: ${{ secrets.AWS_OIDC_ROLE_ARN}} #update from AWS IAM
+
+  #registry values
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  ECR_REGISTRY: ${{ secrets.ECR_REGISTRY }}       #AWS REGISTRY (WITHOUT REPO NAME) example - 8XXXXXXXXXXX2.dkr.ecr.us-east-1.amazonaws.com ***
+  APP_NAME: clock-app-${{ vars.OWNER }}   # OWNER value in lower case - same value used for repo/image name
+  
+  #application variables
+  OWNER: ${{ vars.OWNER }}        # OWNER value in lower case - adds customization to application - update to your name
+  ACCESS_PORT: 8085               # make sure this port is open on your EC2
+
+  #ec2 credentials
+  EC2_HOST: ${{ vars.EC2_HOST }}
+  SSH_USERNAME: ${{ secrets.SSH_USERNAME }}
+  KEY: ${{ secrets.SSH_KEY }}
+
+  #sonarqube credentials
+  SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+  SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
+  
+
+jobs:
+  build-scan-push-deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # ---------------------------
+      # AWS Auth (OIDC) and ECR login
+      # ---------------------------
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_OIDC_ROLE_ARN}}
+          aws-region: ${{ env.AWS_REGION }}
+      
+      - name: Login to Amazon ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      # ---------------------------
+      # Static Code Analysis (SonarQube)
+      # ---------------------------
+  
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@master
+        env:
+          SONAR_TOKEN: ${{ env.SONAR_TOKEN }}
+          SONAR_HOST_URL: ${{ env.SONAR_HOST_URL }}
+        with:
+          args: >
+            -Dsonar.projectKey=${{ env.APP_NAME }}
+            -Dsonar.projectName=${{ env.APP_NAME }}
+            -Dsonar.sources=.
+
+      # ---------------------------
+      # Build Docker Image
+      # ---------------------------
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v5
+        with:
+          push: false
+          load: true
+          tags: ${{ env.ECR_REGISTRY }}/${{ env.APP_NAME }}:${{ github.run_number }}
+          build-args:
+            OWNER=${{ env.OWNER }}
+
+      # ---------------------------
+      # Trivy Image Scan
+      # ---------------------------
+      - name: Trivy vulnerability scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.ECR_REGISTRY }}/${{ env.APP_NAME }}:${{ github.run_number }}
+          severity: HIGH,CRITICAL
+          exit-code: 0            # ideally, change to 1 (instead of 0) so pipeline fails if vulnerabilities are found
+          format: 'table'
+          output: 'trivy-report.txt'
+
+      #Upload report so you can download it from the "Actions" run page
+      - name: Upload Report Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Trivy-Vulnerability-Report
+          path: trivy-report.txt
+
+      # ---------------------------
+      # Push to ECR
+      # ---------------------------
+      - name: Create ECR repository if not exists
+        run: |
+          aws ecr describe-repositories --repository-names ${{ env.APP_NAME }} || \
+          aws ecr create-repository \
+            --repository-name ${{ env.APP_NAME }} \
+            --image-tag-mutability MUTABLE \
+            --image-scanning-configuration scanOnPush=true
+
+      - name: Push image to Amazon ECR
+        uses: docker/build-push-action@v5
+        with:
+          push: true
+          tags: |
+            ${{ env.ECR_REGISTRY }}/${{ env.APP_NAME }}:${{ github.run_number }}
+            ${{ env.ECR_REGISTRY }}/${{ env.APP_NAME }}:latest
+          build-args:
+            OWNER=${{ env.OWNER }}
+
+      # ---------------------------
+      # Deploy to Dev EC2 
+      # ---------------------------
+      
+      - name: SSH into EC2 machine, deploy new docker image and confirm deployment
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ env.EC2_HOST }}
+          username: ${{ env.SSH_USERNAME }}
+          key: ${{ env.KEY }}
+          script: |
+              aws ecr get-login-password --region ${{ env.AWS_REGION }} \
+                    | sudo docker login --username AWS --password-stdin ${{ env.ECR_REGISTRY }}
+              sudo docker rm -f ${{ env.APP_NAME }} || echo "Container not found, skipping removal."
+              sudo docker image prune -f || echo "No old image, skipping image removal"
+              sudo docker run -d --name ${{ env.APP_NAME }} -p ${{ env.ACCESS_PORT }}:80 ${{ env.ECR_REGISTRY }}/${{ env.APP_NAME }}:${{ github.run_number }}
+              sleep 5
+              echo "wait.......one moment......"
+              sleep 2
+              curl -f http://localhost:${{ env.ACCESS_PORT }} | head -7 || exit 1     #healthcheck. if it curl command fails to access the application, the pipeline fails
+
+      # ---------------------------
+      # Display application url 
+      # ---------------------------
+
+      - name: output deployment information
+        run: |
+          echo "==============================================================================================================="
+          echo "==============================================================================================================="
+          echo "new image = ${{ env.ECR_REGISTRY }}/${{ env.APP_NAME }}:${{ github.run_number }}"
+          echo "DEPLOYMENT SUCCESSFUL! You can now access your application at http://${{ env.EC2_HOST }}:${{ env.ACCESS_PORT }}"
+          echo "==============================================================================================================="
+          echo "- **Deployed At:** $(date)" >> $GITHUB_STEP_SUMMARY
+          echo "- **Access At:** http://${{ env.EC2_HOST }}:${{ env.ACCESS_PORT }}" >> $GITHUB_STEP_SUMMARY
+          echo "==============================================================================================================="
+          
