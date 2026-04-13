@@ -194,7 +194,7 @@ On the permissions page, search for and select **AmazonEC2ContainerRegistryFullA
 
 ---
 
-The policy is now attached to the role before creation. We can also consider a role with lower priveleges as best practice.
+The policy is now attached to the role before creation. We can also consider a role with lower privileges as best practice.
  
 ![Add permissions confirmation showing AmazonEC2ContainerRegistryFullAccess selected](images/18_policy_added.png) 
 

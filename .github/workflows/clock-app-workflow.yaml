@@ -1,5 +1,3 @@
-# move to ./github/workflows/
-
 name: Clock_App-Deploy_to_EC2_ucheor 
 
 on:
