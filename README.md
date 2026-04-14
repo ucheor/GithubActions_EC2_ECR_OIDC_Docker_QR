@@ -180,7 +180,7 @@ Go to IAM → Roles → Create role. This role will be assumed by GitHub Actions
 
 ---
 
-Select Web identity as the trusted entity type, choose token.actions.githubusercontent.com as the Identity Provider, set Audience to sts.amazonaws.com, and enter your GitHub organization name (e.g., miriam-sandbox). 
+Select Web identity as the trusted entity type, choose token.actions.githubusercontent.com as the Identity Provider, set Audience to sts.amazonaws.com, and enter your GitHub organization name (e.g., ucheor)
 
 **Note:** You can use a wildcard * for repository to allow all repos, or specify a particular one for tighter security.
  
